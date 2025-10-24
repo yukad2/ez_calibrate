@@ -135,6 +135,7 @@
       </form>
       <hr />
       <button type="button" id="fullscreenButton">全画面表示</button>
+      <button type="button" id="popoutButton">リモコンを別ウィンドウで開く</button>
       <div class="info-box" id="info">色や画像を設定するとここに表示されます。</div>
     </div>
     <div class="display-area">
@@ -145,6 +146,8 @@
   <script>
     const displayFrame = document.getElementById('displayFrame');
     const infoBox = document.getElementById('info');
+    const broadcastChannel = 'BroadcastChannel' in window ? new BroadcastChannel('ez-calibrate-control') : null;
+    let remoteWindow = null;
 
     function updateInfo(message) {
       infoBox.textContent = message;
@@ -157,10 +160,52 @@
       displayFrame.contentWindow.postMessage(data, '*');
     }
 
+    function applyCommand(command) {
+      if (!command || typeof command !== 'object') {
+        return false;
+      }
+      const { type, value } = command;
+      if (type === 'color' && typeof value === 'string') {
+        sendMessage({ type: 'color', value });
+        updateInfo(`色: ${value}`);
+        return true;
+      } else if (type === 'image' && typeof value === 'string' && value.trim() !== '') {
+        sendMessage({ type: 'image', value });
+        updateInfo(`画像: ${value}`);
+        return true;
+      }
+      return false;
+    }
+
+    function processCommand(command, { fromRemote = false, shouldBroadcast = true } = {}) {
+      const applied = applyCommand(command);
+      if (!applied) {
+        return;
+      }
+
+      if (shouldBroadcast && broadcastChannel) {
+        broadcastChannel.postMessage(command);
+      }
+
+      if (remoteWindow && remoteWindow.closed) {
+        remoteWindow = null;
+      }
+
+      if (!fromRemote && remoteWindow && !remoteWindow.closed) {
+        remoteWindow.postMessage(
+          {
+            type: 'ez-calibrate-command',
+            payload: command,
+            broadcasted: !!broadcastChannel,
+          },
+          '*',
+        );
+      }
+    }
+
     function setColor() {
       const color = document.getElementById('colorInput').value.trim() || '#ffffff';
-      sendMessage({ type: 'color', value: color });
-      updateInfo(`色: ${color}`);
+      processCommand({ type: 'color', value: color });
     }
 
     function setImage() {
@@ -169,8 +214,18 @@
         updateInfo('画像URLを入力してください。');
         return;
       }
-      sendMessage({ type: 'image', value: url });
-      updateInfo(`画像: ${url}`);
+      processCommand({ type: 'image', value: url });
+    }
+
+    function openRemoteWindow() {
+      if (remoteWindow && !remoteWindow.closed) {
+        remoteWindow.focus();
+        return;
+      }
+      remoteWindow = window.open('remote.html', 'ezCalibrateRemote', 'width=420,height=680');
+      if (!remoteWindow) {
+        updateInfo('ポップアップがブロックされました。別ウィンドウ表示を許可してください。');
+      }
     }
 
     function enterFullScreen() {
@@ -191,6 +246,7 @@
     document.getElementById('colorButton').addEventListener('click', setColor);
     document.getElementById('imageButton').addEventListener('click', setImage);
     document.getElementById('fullscreenButton').addEventListener('click', enterFullScreen);
+    document.getElementById('popoutButton').addEventListener('click', openRemoteWindow);
 
     document.getElementById('colorInput').addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
@@ -203,6 +259,29 @@
       if (event.key === 'Enter') {
         event.preventDefault();
         setImage();
+      }
+    });
+
+    broadcastChannel?.addEventListener('message', (event) => {
+      processCommand(event.data, { fromRemote: true, shouldBroadcast: false });
+    });
+
+    window.addEventListener('message', (event) => {
+      const data = event.data;
+      if (!data || typeof data !== 'object') {
+        return;
+      }
+
+      if (data.type === 'ez-calibrate-command' && data.payload && typeof data.payload === 'object') {
+        const shouldBroadcast = broadcastChannel && data.broadcasted === false;
+        processCommand(data.payload, { fromRemote: true, shouldBroadcast });
+      }
+    });
+
+    window.addEventListener('beforeunload', () => {
+      broadcastChannel?.close();
+      if (remoteWindow && !remoteWindow.closed) {
+        remoteWindow.close();
       }
     });
   </script>

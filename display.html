@@ -50,6 +50,7 @@
   <script>
     const display = document.getElementById('display');
     const overlayInfo = document.getElementById('overlay-info');
+    const broadcastChannel = 'BroadcastChannel' in window ? new BroadcastChannel('ez-calibrate-control') : null;
 
     function showColor(color) {
       display.style.backgroundImage = '';
@@ -66,9 +67,8 @@
       overlayInfo.textContent = `画像表示中:\n${imageUrl}`;
     }
 
-    window.addEventListener('message', (event) => {
-      const data = event.data || {};
-      if (typeof data !== 'object') {
+    function handleCommand(data) {
+      if (!data || typeof data !== 'object') {
         return;
       }
 
@@ -78,6 +78,18 @@
       } else if (type === 'image' && typeof value === 'string') {
         showImage(value);
       }
+    }
+
+    window.addEventListener('message', (event) => {
+      handleCommand(event.data);
+    });
+
+    broadcastChannel?.addEventListener('message', (event) => {
+      handleCommand(event.data);
+    });
+
+    window.addEventListener('beforeunload', () => {
+      broadcastChannel?.close();
     });
   </script>
 </body>
