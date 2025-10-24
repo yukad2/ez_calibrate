@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>表示画面</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: white;
+    }
+
+    #display {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      background-color: #000000;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-size: contain;
+      position: relative;
+    }
+
+    #overlay-info {
+      position: absolute;
+      left: 20px;
+      bottom: 20px;
+      padding: 10px 14px;
+      background: rgba(0, 0, 0, 0.45);
+      border-radius: 6px;
+      font-size: 0.9rem;
+      line-height: 1.4;
+      white-space: pre-line;
+      max-width: min(90vw, 480px);
+    }
+  </style>
+</head>
+<body>
+  <div id="display">
+    <div id="overlay-info">リモコンから色や画像を選択してください。</div>
+  </div>
+  <script>
+    const display = document.getElementById('display');
+    const overlayInfo = document.getElementById('overlay-info');
+
+    function showColor(color) {
+      display.style.backgroundImage = '';
+      display.style.backgroundColor = color;
+      overlayInfo.textContent = `現在の色: ${color}`;
+    }
+
+    function showImage(imageUrl) {
+      display.style.backgroundColor = '#000';
+      display.style.backgroundImage = `url("${imageUrl}")`;
+      display.style.backgroundSize = 'contain';
+      display.style.backgroundRepeat = 'no-repeat';
+      display.style.backgroundPosition = 'center';
+      overlayInfo.textContent = `画像表示中:\n${imageUrl}`;
+    }
+
+    window.addEventListener('message', (event) => {
+      const data = event.data || {};
+      if (typeof data !== 'object') {
+        return;
+      }
+
+      const { type, value } = data;
+      if (type === 'color' && typeof value === 'string') {
+        showColor(value);
+      } else if (type === 'image' && typeof value === 'string') {
+        showImage(value);
+      }
+    });
+  </script>
+</body>
+</html>
