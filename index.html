@@ -162,22 +162,50 @@
 
     function applyCommand(command) {
       if (!command || typeof command !== 'object') {
-        return;
+        return false;
       }
       const { type, value } = command;
       if (type === 'color' && typeof value === 'string') {
         sendMessage({ type: 'color', value });
         updateInfo(`色: ${value}`);
+        return true;
       } else if (type === 'image' && typeof value === 'string' && value.trim() !== '') {
         sendMessage({ type: 'image', value });
         updateInfo(`画像: ${value}`);
+        return true;
+      }
+      return false;
+    }
+
+    function processCommand(command, { fromRemote = false, shouldBroadcast = true } = {}) {
+      const applied = applyCommand(command);
+      if (!applied) {
+        return;
+      }
+
+      if (shouldBroadcast && broadcastChannel) {
+        broadcastChannel.postMessage(command);
+      }
+
+      if (remoteWindow && remoteWindow.closed) {
+        remoteWindow = null;
+      }
+
+      if (!fromRemote && remoteWindow && !remoteWindow.closed) {
+        remoteWindow.postMessage(
+          {
+            type: 'ez-calibrate-command',
+            payload: command,
+            broadcasted: !!broadcastChannel,
+          },
+          '*',
+        );
       }
     }
 
     function setColor() {
       const color = document.getElementById('colorInput').value.trim() || '#ffffff';
-      applyCommand({ type: 'color', value: color });
-      broadcastChannel?.postMessage({ type: 'color', value: color });
+      processCommand({ type: 'color', value: color });
     }
 
     function setImage() {
@@ -186,8 +214,7 @@
         updateInfo('画像URLを入力してください。');
         return;
       }
-      applyCommand({ type: 'image', value: url });
-      broadcastChannel?.postMessage({ type: 'image', value: url });
+      processCommand({ type: 'image', value: url });
     }
 
     function openRemoteWindow() {
@@ -236,7 +263,19 @@
     });
 
     broadcastChannel?.addEventListener('message', (event) => {
-      applyCommand(event.data);
+      processCommand(event.data, { fromRemote: true, shouldBroadcast: false });
+    });
+
+    window.addEventListener('message', (event) => {
+      const data = event.data;
+      if (!data || typeof data !== 'object') {
+        return;
+      }
+
+      if (data.type === 'ez-calibrate-command' && data.payload && typeof data.payload === 'object') {
+        const shouldBroadcast = broadcastChannel && data.broadcasted === false;
+        processCommand(data.payload, { fromRemote: true, shouldBroadcast });
+      }
     });
 
     window.addEventListener('beforeunload', () => {

@@ -119,6 +119,10 @@
     const infoBox = document.getElementById('info');
     const broadcastChannel = 'BroadcastChannel' in window ? new BroadcastChannel('ez-calibrate-control') : null;
 
+    function getOpenerWindow() {
+      return window.opener && !window.opener.closed ? window.opener : null;
+    }
+
     function updateInfo(message) {
       infoBox.textContent = message;
     }
@@ -135,14 +139,36 @@
       }
     }
 
+    function dispatchCommand(command) {
+      let delivered = false;
+
+      if (broadcastChannel) {
+        broadcastChannel.postMessage(command);
+        delivered = true;
+      }
+
+      const openerWindow = getOpenerWindow();
+      if (openerWindow) {
+        openerWindow.postMessage(
+          {
+            type: 'ez-calibrate-command',
+            payload: command,
+            broadcasted: !!broadcastChannel,
+          },
+          '*',
+        );
+        delivered = true;
+      }
+
+      if (!delivered) {
+        updateInfo('制御できる表示画面が見つかりません。');
+      }
+    }
+
     function setColor() {
       const color = document.getElementById('colorInput').value.trim() || '#ffffff';
-      if (!broadcastChannel) {
-        updateInfo('このブラウザでは別ウィンドウ制御がサポートされていません。');
-        return;
-      }
       reportCommand({ type: 'color', value: color });
-      broadcastChannel.postMessage({ type: 'color', value: color });
+      dispatchCommand({ type: 'color', value: color });
     }
 
     function setImage() {
@@ -151,12 +177,8 @@
         updateInfo('画像URLを入力してください。');
         return;
       }
-      if (!broadcastChannel) {
-        updateInfo('このブラウザでは別ウィンドウ制御がサポートされていません。');
-        return;
-      }
       reportCommand({ type: 'image', value: url });
-      broadcastChannel.postMessage({ type: 'image', value: url });
+      dispatchCommand({ type: 'image', value: url });
     }
 
     document.getElementById('colorButton').addEventListener('click', setColor);
@@ -180,12 +202,27 @@
       reportCommand(event.data);
     });
 
+    window.addEventListener('message', (event) => {
+      const data = event.data;
+      if (!data || typeof data !== 'object') {
+        return;
+      }
+
+      if (data.type === 'ez-calibrate-command' && data.payload && typeof data.payload === 'object') {
+        reportCommand(data.payload);
+      }
+    });
+
     window.addEventListener('beforeunload', () => {
       broadcastChannel?.close();
     });
 
     if (!broadcastChannel) {
-      updateInfo('このブラウザでは別ウィンドウ制御がサポートされていません。');
+      if (getOpenerWindow()) {
+        updateInfo('BroadcastChannel 非対応のため、このウィンドウを開いた画面のみ操作できます。');
+      } else {
+        updateInfo('このブラウザでは別ウィンドウ制御がサポートされていません。');
+      }
     }
   </script>
 </body>
