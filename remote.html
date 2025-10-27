@@ -8,17 +8,58 @@
 <body>
   <div class="control-panel">
     <h1>リモコン</h1>
-    <form id="colorForm">
-      <label for="colorInput">色 (CSSカラー名または #HEX):</label>
-      <input type="text" id="colorInput" name="color" placeholder="#ff0000" />
-      <button type="button" id="colorButton">色を設定</button>
-    </form>
-    <hr />
-    <form id="imageForm">
-      <label for="imageUrl">画像URL:</label>
-      <input type="url" id="imageUrl" name="imageUrl" placeholder="https://example.com/image.jpg" />
-      <button type="button" id="imageButton">画像を表示</button>
-    </form>
+    <div class="tab-menu" role="tablist" aria-label="リモコン機能">
+      <button
+        type="button"
+        class="tab-menu__tab is-active"
+        id="tab-button-color"
+        data-tab="color"
+        role="tab"
+        aria-selected="true"
+        aria-controls="tab-panel-color"
+      >
+        色設定
+      </button>
+      <button
+        type="button"
+        class="tab-menu__tab"
+        id="tab-button-image"
+        data-tab="image"
+        role="tab"
+        aria-selected="false"
+        aria-controls="tab-panel-image"
+      >
+        画像設定
+      </button>
+    </div>
+
+    <div class="tab-panels">
+      <section
+        id="tab-panel-color"
+        class="tab-panel is-active"
+        role="tabpanel"
+        aria-labelledby="tab-button-color"
+      >
+        <form id="colorForm">
+          <label for="colorInput">色 (CSSカラー名または #HEX):</label>
+          <input type="text" id="colorInput" name="color" placeholder="#ff0000" />
+          <button type="button" id="colorButton" class="action-button">色を設定</button>
+        </form>
+      </section>
+      <section
+        id="tab-panel-image"
+        class="tab-panel"
+        role="tabpanel"
+        aria-labelledby="tab-button-image"
+        hidden
+      >
+        <form id="imageForm">
+          <label for="imageUrl">画像URL:</label>
+          <input type="url" id="imageUrl" name="imageUrl" placeholder="https://example.com/image.jpg" />
+          <button type="button" id="imageButton" class="action-button">画像を表示</button>
+        </form>
+      </section>
+    </div>
     <div class="hint">
       開いている表示画面（display.html またはトップページのプレビュー）に即座に反映されます。
     </div>

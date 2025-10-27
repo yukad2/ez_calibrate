@@ -1,5 +1,7 @@
 const infoBox = document.getElementById('info');
 const broadcastChannel = 'BroadcastChannel' in window ? new BroadcastChannel('ez-calibrate-control') : null;
+const tabButtons = Array.from(document.querySelectorAll('.tab-menu__tab'));
+const tabPanels = Array.from(document.querySelectorAll('.tab-panel'));
 
 function getOpenerWindow() {
   return window.opener && !window.opener.closed ? window.opener : null;
@@ -79,6 +81,72 @@ document.getElementById('imageUrl').addEventListener('keydown', (event) => {
     setImage();
   }
 });
+
+function activateTab(button) {
+  if (!button || !(button instanceof HTMLElement)) {
+    return;
+  }
+  const target = button.dataset.tab;
+  if (!target) {
+    return;
+  }
+  const panelId = `tab-panel-${target}`;
+
+  tabButtons.forEach((tabButton) => {
+    const isActive = tabButton === button;
+    tabButton.classList.toggle('is-active', isActive);
+    tabButton.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    tabButton.setAttribute('tabindex', isActive ? '0' : '-1');
+  });
+
+  tabPanels.forEach((panel) => {
+    const shouldShow = panel.id === panelId;
+    panel.classList.toggle('is-active', shouldShow);
+    if (shouldShow) {
+      panel.removeAttribute('hidden');
+    } else {
+      panel.setAttribute('hidden', '');
+    }
+  });
+}
+
+tabButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    activateTab(button);
+  });
+
+  button.addEventListener('keydown', (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+      return;
+    }
+    event.preventDefault();
+    if (event.key === 'Home') {
+      const first = tabButtons[0];
+      first.focus();
+      activateTab(first);
+      return;
+    }
+    if (event.key === 'End') {
+      const last = tabButtons[tabButtons.length - 1];
+      last.focus();
+      activateTab(last);
+      return;
+    }
+    const currentIndex = tabButtons.indexOf(button);
+    if (currentIndex === -1) {
+      return;
+    }
+    const offset = event.key === 'ArrowRight' ? 1 : -1;
+    const nextIndex = (currentIndex + offset + tabButtons.length) % tabButtons.length;
+    const nextButton = tabButtons[nextIndex];
+    nextButton.focus();
+    activateTab(nextButton);
+  });
+});
+
+if (tabButtons.length) {
+  activateTab(tabButtons.find((button) => button.classList.contains('is-active')) || tabButtons[0]);
+}
 
 broadcastChannel?.addEventListener('message', (event) => {
   reportCommand(event.data);
