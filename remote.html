@@ -40,11 +40,120 @@
         role="tabpanel"
         aria-labelledby="tab-button-color"
       >
-        <form id="colorForm">
-          <label for="colorInput">色 (CSSカラー名または #HEX):</label>
-          <input type="text" id="colorInput" name="color" placeholder="#ff0000" />
+        <form id="colorForm" class="color-form">
+          <div class="color-form__group">
+            <label for="colorSpace">色空間</label>
+            <select id="colorSpace" name="colorSpace" class="color-form__select">
+              <option value="srgb">sRGB</option>
+              <option value="linear">Linear</option>
+              <option value="displayP3">Display P3</option>
+              <option value="rec2020">Rec.2020</option>
+              <option value="adobeRGB">Adobe RGB</option>
+              <option value="xyz">CIE XYZ</option>
+              <option value="cieluv">CIELUV</option>
+            </select>
+          </div>
+          <div class="color-form__group">
+            <span class="color-form__group-label">入力方式</span>
+            <div class="input-mode-toggle" role="group" aria-label="入力方式">
+              <button type="button" class="input-mode is-active" data-mode="hex">#HEX</button>
+              <button type="button" class="input-mode" data-mode="float">Float</button>
+              <button type="button" class="input-mode" data-mode="255">0-255</button>
+            </div>
+          </div>
+          <div class="color-form__inputs">
+            <div class="color-input-set is-active" data-mode="hex">
+              <label for="colorHex">#HEX</label>
+              <input type="text" id="colorHex" name="colorHex" placeholder="#ff0000" autocomplete="off" />
+            </div>
+            <div class="color-input-set" data-mode="float">
+              <span class="color-input-set__legend">Float 値</span>
+              <div class="color-input-set__components">
+                <label class="color-input-set__component" for="colorFloat0">
+                  <span class="color-input-set__label" data-component-index="0">R</span>
+                  <input
+                    type="number"
+                    id="colorFloat0"
+                    data-component-index="0"
+                    step="0.0001"
+                    inputmode="decimal"
+                    autocomplete="off"
+                  />
+                </label>
+                <label class="color-input-set__component" for="colorFloat1">
+                  <span class="color-input-set__label" data-component-index="1">G</span>
+                  <input
+                    type="number"
+                    id="colorFloat1"
+                    data-component-index="1"
+                    step="0.0001"
+                    inputmode="decimal"
+                    autocomplete="off"
+                  />
+                </label>
+                <label class="color-input-set__component" for="colorFloat2">
+                  <span class="color-input-set__label" data-component-index="2">B</span>
+                  <input
+                    type="number"
+                    id="colorFloat2"
+                    data-component-index="2"
+                    step="0.0001"
+                    inputmode="decimal"
+                    autocomplete="off"
+                  />
+                </label>
+              </div>
+            </div>
+            <div class="color-input-set" data-mode="255">
+              <span class="color-input-set__legend">整数値 (0-255)</span>
+              <div class="color-input-set__components">
+                <label class="color-input-set__component" for="color255_0">
+                  <span class="color-input-set__label" data-component-index="0">R</span>
+                  <input
+                    type="number"
+                    id="color255_0"
+                    data-component-index="0"
+                    step="1"
+                    inputmode="numeric"
+                    autocomplete="off"
+                  />
+                </label>
+                <label class="color-input-set__component" for="color255_1">
+                  <span class="color-input-set__label" data-component-index="1">G</span>
+                  <input
+                    type="number"
+                    id="color255_1"
+                    data-component-index="1"
+                    step="1"
+                    inputmode="numeric"
+                    autocomplete="off"
+                  />
+                </label>
+                <label class="color-input-set__component" for="color255_2">
+                  <span class="color-input-set__label" data-component-index="2">B</span>
+                  <input
+                    type="number"
+                    id="color255_2"
+                    data-component-index="2"
+                    step="1"
+                    inputmode="numeric"
+                    autocomplete="off"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
           <button type="button" id="colorButton" class="action-button">色を設定</button>
         </form>
+        <div class="color-details">
+          <div class="color-details__controls" id="colorDetailsControls" hidden>
+            <label for="colorDetailsFilter" class="color-details__controls-label">表示項目</label>
+            <select id="colorDetailsFilter" class="color-details__filter">
+              <option value="all">すべて</option>
+            </select>
+          </div>
+          <div class="color-details__body" id="colorDetailsBody" aria-live="polite"></div>
+        </div>
       </section>
       <section
         id="tab-panel-image"
