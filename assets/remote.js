@@ -20,14 +20,33 @@ const colorDetailsBody = document.getElementById('colorDetailsBody');
 const colorDetailsFilter = document.getElementById('colorDetailsFilter');
 const colorDetailsControls = document.getElementById('colorDetailsControls');
 const colorInputs = Array.from(document.querySelectorAll('.color-input-set input'));
+const templateLibrary = window.ezCalibrateTemplates;
+const templateListElement = document.getElementById('templateList');
+const templatePreview = document.getElementById('templatePreview');
+const templateButton = document.getElementById('templateButton');
+const templateEmptyMessage = document.getElementById('templateEmptyMessage');
 const remoteId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `remote-${Date.now()}-${Math.random()}`;
 
 let currentInputMode = 'hex';
 let lastXYZ = null;
 let selectedDetailSpace = 'all';
+let selectedTemplateId = null;
 
 function getOpenerWindow() {
   return window.opener && !window.opener.closed ? window.opener : null;
+}
+
+function findTemplate(templateId) {
+  if (!templateLibrary) {
+    return null;
+  }
+  if (typeof templateLibrary.getMetadata === 'function') {
+    return templateLibrary.getMetadata(templateId);
+  }
+  if (typeof templateLibrary.get === 'function') {
+    return templateLibrary.get(templateId);
+  }
+  return null;
 }
 
 function updateInfo(message) {
@@ -351,6 +370,184 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+function updateTemplatePreview(template, message) {
+  if (!templatePreview) {
+    return;
+  }
+
+  if (typeof message === 'string') {
+    templatePreview.innerHTML = `<p class="template-preview__placeholder">${escapeHtml(message)}</p>`;
+    return;
+  }
+
+  if (!template) {
+    templatePreview.innerHTML = '<p class="template-preview__placeholder">テンプレートを選択すると概要が表示されます。</p>';
+    return;
+  }
+
+  const highlights = Array.isArray(template.highlights) && template.highlights.length
+    ? `<ul class="template-preview__highlights">${template.highlights
+        .map((item) => `<li>${escapeHtml(item)}</li>`)
+        .join('')}</ul>`
+    : '';
+
+  templatePreview.innerHTML = `
+    <article class="template-preview__card">
+      <h3 class="template-preview__title">${escapeHtml(template.name)}</h3>
+      <p class="template-preview__description">${escapeHtml(template.description)}</p>
+      ${highlights}
+    </article>
+  `;
+}
+
+function renderTemplateList() {
+  if (!templateListElement) {
+    return;
+  }
+
+  if (!templateLibrary || typeof templateLibrary.list !== 'function') {
+    templateListElement.innerHTML = '';
+    if (templateEmptyMessage) {
+      templateEmptyMessage.textContent = 'テンプレートを読み込めませんでした。';
+      templateEmptyMessage.hidden = false;
+    }
+    if (templateButton) {
+      templateButton.disabled = true;
+    }
+    updateTemplatePreview(null, 'テンプレート情報を読み込めませんでした。');
+    return;
+  }
+
+  const templates = templateLibrary.list();
+
+  if (!templates.length) {
+    templateListElement.innerHTML = '';
+    if (templateEmptyMessage) {
+      templateEmptyMessage.textContent = '利用できるテンプレートがありません。';
+      templateEmptyMessage.hidden = false;
+    }
+    if (templateButton) {
+      templateButton.disabled = true;
+    }
+    updateTemplatePreview(null, 'テンプレートがまだ登録されていません。');
+    return;
+  }
+
+  if (templateEmptyMessage) {
+    templateEmptyMessage.textContent = '';
+    templateEmptyMessage.hidden = true;
+  }
+
+  templateListElement.innerHTML = templates
+    .map(
+      (template) => `
+        <label class="template-picker__option">
+          <input type="radio" class="template-picker__radio" name="templateSelection" value="${template.id}" />
+          <span class="template-picker__content">
+            <span class="template-picker__title">${escapeHtml(template.name)}</span>
+            <span class="template-picker__text">${escapeHtml(template.description)}</span>
+          </span>
+        </label>
+      `,
+    )
+    .join('');
+
+  const radios = templateListElement.querySelectorAll('.template-picker__radio');
+  let matched = false;
+  radios.forEach((radio) => {
+    if (radio.value === selectedTemplateId) {
+      radio.checked = true;
+      matched = true;
+    }
+  });
+
+  if (templateButton) {
+    templateButton.disabled = !matched;
+  }
+
+  if (matched) {
+    const template = findTemplate(selectedTemplateId);
+    updateTemplatePreview(template);
+  } else {
+    selectedTemplateId = null;
+    updateTemplatePreview(null);
+  }
+}
+
+function handleTemplateSelection(event) {
+  const target = event.target;
+  if (!target || !target.classList.contains('template-picker__radio')) {
+    return;
+  }
+
+  selectedTemplateId = target.value;
+  const template = findTemplate(selectedTemplateId);
+  if (templateButton) {
+    templateButton.disabled = !template;
+  }
+  if (template) {
+    updateTemplatePreview(template);
+  } else {
+    updateTemplatePreview(null, '選択したテンプレートを読み込めません。');
+  }
+}
+
+function setTemplate() {
+  if (!selectedTemplateId) {
+    updateInfo('テンプレートを選択してください。');
+    return;
+  }
+
+  const template = findTemplate(selectedTemplateId);
+  if (!template) {
+    updateInfo('選択したテンプレートを読み込めませんでした。');
+    return;
+  }
+
+  const delivered = dispatchCommand({ type: 'template', value: template.id });
+  updateInfo(`テンプレート: ${template.name}${delivered ? '' : '\n制御先なし'}`);
+}
+
+function showExternalTemplate(templateId) {
+  const template = findTemplate(templateId);
+  selectedTemplateId = template ? templateId : null;
+
+  if (templateListElement) {
+    const radios = templateListElement.querySelectorAll('.template-picker__radio');
+    let matched = false;
+    radios.forEach((radio) => {
+      const isMatch = template && radio.value === templateId;
+      radio.checked = isMatch;
+      if (isMatch) {
+        matched = true;
+      }
+    });
+
+    if (template && !matched) {
+      renderTemplateList();
+    }
+  }
+
+  if (templateButton) {
+    templateButton.disabled = !template;
+  }
+
+  if (template) {
+    updateTemplatePreview(template);
+    updateInfo(`テンプレート: ${template.name}`);
+  } else {
+    updateTemplatePreview(null, `テンプレート (${templateId}) を表示できません。`);
+    updateInfo(`テンプレート: ${templateId}`);
+  }
+}
+
+function initializeTemplatePanel() {
+  renderTemplateList();
+  if (!selectedTemplateId) {
+    updateTemplatePreview(null);
+  }
 }
 
 function formatInputLabel(mode) {
@@ -719,6 +916,8 @@ function reportCommand(command) {
     showExternalColor(command);
   } else if (type === 'image' && typeof value === 'string') {
     updateInfo(`画像: ${value}`);
+  } else if (type === 'template' && typeof value === 'string') {
+    showExternalTemplate(value);
   }
 }
 
@@ -830,6 +1029,10 @@ document.getElementById('imageUrl').addEventListener('keydown', (event) => {
   }
 });
 
+templateListElement?.addEventListener('change', handleTemplateSelection);
+templateButton?.addEventListener('click', setTemplate);
+
+initializeTemplatePanel();
 initializeColorForm();
 
 function setupTabs() {
