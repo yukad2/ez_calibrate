@@ -2,6 +2,20 @@ const displayFrame = document.getElementById('displayFrame');
 const infoBox = document.getElementById('info');
 const broadcastChannel = 'BroadcastChannel' in window ? new BroadcastChannel('ez-calibrate-control') : null;
 let remoteWindow = null;
+const templateLibrary = window.ezCalibrateTemplates;
+
+function findTemplate(templateId) {
+  if (!templateLibrary) {
+    return null;
+  }
+  if (typeof templateLibrary.getMetadata === 'function') {
+    return templateLibrary.getMetadata(templateId);
+  }
+  if (typeof templateLibrary.get === 'function') {
+    return templateLibrary.get(templateId);
+  }
+  return null;
+}
 
 function updateInfo(message) {
   infoBox.textContent = message;
@@ -26,6 +40,12 @@ function applyCommand(command) {
   } else if (type === 'image' && typeof value === 'string' && value.trim() !== '') {
     sendMessage({ type: 'image', value });
     updateInfo(`画像: ${value}`);
+    return true;
+  } else if (type === 'template' && typeof value === 'string') {
+    sendMessage({ type: 'template', value });
+    const template = findTemplate(value);
+    const label = template ? template.name : `ID: ${value}`;
+    updateInfo(`テンプレート: ${label}${template ? '' : ' (未登録)'}`);
     return true;
   }
   return false;

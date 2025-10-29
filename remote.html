@@ -31,6 +31,17 @@
       >
         画像設定
       </button>
+      <button
+        type="button"
+        class="tab-menu__tab"
+        id="tab-button-template"
+        data-tab="template"
+        role="tab"
+        aria-selected="false"
+        aria-controls="tab-panel-template"
+      >
+        テンプレート表示
+      </button>
     </div>
 
     <div class="tab-panels">
@@ -168,6 +179,23 @@
           <button type="button" id="imageButton" class="action-button">画像を表示</button>
         </form>
       </section>
+      <section
+        id="tab-panel-template"
+        class="tab-panel"
+        role="tabpanel"
+        aria-labelledby="tab-button-template"
+        hidden
+      >
+        <div class="template-panel">
+          <p class="template-panel__lead">
+            表示画面に定型レイアウトを一括表示します。選択後に「テンプレートを表示」を押してください。
+          </p>
+          <div id="templateList" class="template-picker" role="radiogroup" aria-label="テンプレート一覧"></div>
+          <p id="templateEmptyMessage" class="template-panel__empty" hidden></p>
+          <div id="templatePreview" class="template-preview" aria-live="polite" aria-atomic="true"></div>
+          <button type="button" id="templateButton" class="action-button" disabled>テンプレートを表示</button>
+        </div>
+      </section>
     </div>
     <div class="hint">
       開いている表示画面（display.html またはトップページのプレビュー）に即座に反映されます。
@@ -175,6 +203,7 @@
     <div class="info-box" id="info">色や画像を設定するとここに表示されます。</div>
   </div>
 
+  <script src="assets/templates.js"></script>
   <script src="assets/remote.js"></script>
 </body>
 </html>
