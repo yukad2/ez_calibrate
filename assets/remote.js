@@ -25,6 +25,17 @@ const templateListElement = document.getElementById('templateList');
 const templatePreview = document.getElementById('templatePreview');
 const templateButton = document.getElementById('templateButton');
 const templateEmptyMessage = document.getElementById('templateEmptyMessage');
+const deltaInputSpaceSelect = document.getElementById('deltaInputSpace');
+const deltaInputLabels = Array.from(document.querySelectorAll('.delta-form__component-label'));
+const deltaInputs = [
+  document.getElementById('deltaInput0'),
+  document.getElementById('deltaInput1'),
+  document.getElementById('deltaInput2'),
+].filter(Boolean);
+const deltaMethodSelect = document.getElementById('deltaMethod');
+const deltaResultElement = document.getElementById('deltaResult');
+const deltaReferenceElement = document.getElementById('deltaReference');
+const deltaButton = document.getElementById('deltaButton');
 const remoteId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `remote-${Date.now()}-${Math.random()}`;
 
 let currentInputMode = 'hex';
@@ -204,6 +215,139 @@ function luvToXyz([l, u, v]) {
   return [x, y, z];
 }
 
+function xyzToLab([x, y, z]) {
+  const xr = D65.X === 0 ? 0 : x / D65.X;
+  const yr = D65.Y === 0 ? 0 : y / D65.Y;
+  const zr = D65.Z === 0 ? 0 : z / D65.Z;
+
+  const fx = xr > EPSILON ? Math.cbrt(xr) : (KAPPA * xr + 16) / 116;
+  const fy = yr > EPSILON ? Math.cbrt(yr) : (KAPPA * yr + 16) / 116;
+  const fz = zr > EPSILON ? Math.cbrt(zr) : (KAPPA * zr + 16) / 116;
+
+  const l = 116 * fy - 16;
+  const a = 500 * (fx - fy);
+  const b = 200 * (fy - fz);
+
+  return [l, a, b];
+}
+
+function deltaE76(lab1, lab2) {
+  const [l1, a1, b1] = lab1;
+  const [l2, a2, b2] = lab2;
+  const dl = l1 - l2;
+  const da = a1 - a2;
+  const db = b1 - b2;
+  return Math.sqrt(dl * dl + da * da + db * db);
+}
+
+function deltaE94(lab1, lab2) {
+  const [l1, a1, b1] = lab1;
+  const [l2, a2, b2] = lab2;
+  const kL = 1;
+  const kC = 1;
+  const kH = 1;
+  const k1 = 0.045;
+  const k2 = 0.015;
+
+  const c1 = Math.sqrt(a1 * a1 + b1 * b1);
+  const c2 = Math.sqrt(a2 * a2 + b2 * b2);
+  const deltaL = l1 - l2;
+  const deltaC = c1 - c2;
+  const deltaA = a1 - a2;
+  const deltaB = b1 - b2;
+  const deltaH2 = Math.max(deltaA * deltaA + deltaB * deltaB - deltaC * deltaC, 0);
+  const deltaH = Math.sqrt(deltaH2);
+
+  const sL = 1;
+  const sC = 1 + k1 * c1;
+  const sH = 1 + k2 * c1;
+
+  const lTerm = deltaL / (kL * sL);
+  const cTerm = deltaC / (kC * sC);
+  const hTerm = deltaH / (kH * sH);
+
+  return Math.sqrt(lTerm * lTerm + cTerm * cTerm + hTerm * hTerm);
+}
+
+function degToRad(value) {
+  return (value * Math.PI) / 180;
+}
+
+function radToDeg(value) {
+  return (value * 180) / Math.PI;
+}
+
+function normalizeHueDegrees(angle) {
+  const normalized = angle % 360;
+  return normalized < 0 ? normalized + 360 : normalized;
+}
+
+function deltaE2000(lab1, lab2) {
+  const [l1, a1, b1] = lab1;
+  const [l2, a2, b2] = lab2;
+
+  const c1 = Math.sqrt(a1 * a1 + b1 * b1);
+  const c2 = Math.sqrt(a2 * a2 + b2 * b2);
+  const meanC = (c1 + c2) / 2;
+  const meanC7 = meanC ** 7;
+  const g = 0.5 * (1 - Math.sqrt(meanC7 / (meanC7 + 25 ** 7)));
+
+  const a1Prime = (1 + g) * a1;
+  const a2Prime = (1 + g) * a2;
+  const c1Prime = Math.sqrt(a1Prime * a1Prime + b1 * b1);
+  const c2Prime = Math.sqrt(a2Prime * a2Prime + b2 * b2);
+
+  const h1Prime = normalizeHueDegrees(radToDeg(Math.atan2(b1, a1Prime)));
+  const h2Prime = normalizeHueDegrees(radToDeg(Math.atan2(b2, a2Prime)));
+
+  const deltaLPrime = l2 - l1;
+  const deltaCPrime = c2Prime - c1Prime;
+
+  let deltaHPrime = h2Prime - h1Prime;
+  if (!Number.isFinite(deltaHPrime)) {
+    deltaHPrime = 0;
+  } else if (deltaHPrime > 180) {
+    deltaHPrime -= 360;
+  } else if (deltaHPrime < -180) {
+    deltaHPrime += 360;
+  }
+
+  const deltaHPrimeRad = degToRad(deltaHPrime) / 2;
+  const deltaH = 2 * Math.sqrt(c1Prime * c2Prime) * Math.sin(deltaHPrimeRad);
+
+  let meanHPrime;
+  if (c1Prime * c2Prime === 0) {
+    meanHPrime = h1Prime + h2Prime;
+  } else if (Math.abs(h1Prime - h2Prime) > 180) {
+    meanHPrime = (h1Prime + h2Prime + 360) / 2;
+  } else {
+    meanHPrime = (h1Prime + h2Prime) / 2;
+  }
+
+  const meanLPrime = (l1 + l2) / 2;
+  const meanCPrime = (c1Prime + c2Prime) / 2;
+
+  const t =
+    1 -
+    0.17 * Math.cos(degToRad(meanHPrime - 30)) +
+    0.24 * Math.cos(degToRad(2 * meanHPrime)) +
+    0.32 * Math.cos(degToRad(3 * meanHPrime + 6)) -
+    0.2 * Math.cos(degToRad(4 * meanHPrime - 63));
+
+  const deltaTheta = 30 * Math.exp(-(((meanHPrime - 275) / 25) ** 2));
+  const rC = 2 * Math.sqrt((meanCPrime ** 7) / (meanCPrime ** 7 + 25 ** 7));
+  const sL = 1 + (0.015 * (meanLPrime - 50) ** 2) / Math.sqrt(20 + (meanLPrime - 50) ** 2);
+  const sC = 1 + 0.045 * meanCPrime;
+  const sH = 1 + 0.015 * meanCPrime * t;
+  const rT = -Math.sin(degToRad(2 * deltaTheta)) * rC;
+
+  const lTerm = deltaLPrime / sL;
+  const cTerm = deltaCPrime / sC;
+  const hTerm = deltaH / sH;
+
+  return Math.sqrt(lTerm * lTerm + cTerm * cTerm + hTerm * hTerm + rT * cTerm * hTerm);
+}
+
 const DEFAULT_INPUT_MODES = ['hex', 'float', '255'];
 
 const colorSpaces = {
@@ -310,6 +454,38 @@ const colorSpaces = {
     fromXYZ(xyz) {
       return xyzToLuv(xyz);
     },
+  },
+};
+
+const deltaInputSpaces = {
+  xyz: {
+    name: 'CIE XYZ',
+    componentLabels: ['X', 'Y', 'Z'],
+    toXYZ(values) {
+      return values;
+    },
+  },
+  luv: {
+    name: 'CIELUV',
+    componentLabels: ['L*', 'u*', 'v*'],
+    toXYZ(values) {
+      return luvToXyz(values);
+    },
+  },
+};
+
+const deltaEMethods = {
+  de76: {
+    name: 'CIE76 (ΔE*ab)',
+    calculate: deltaE76,
+  },
+  de94: {
+    name: 'CIE94',
+    calculate: deltaE94,
+  },
+  de2000: {
+    name: 'CIEDE2000',
+    calculate: deltaE2000,
   },
 };
 
@@ -668,6 +844,192 @@ function renderColorDetails(xyz, currentSpaceKey) {
   `;
 }
 
+function updateDeltaInputLabels(spaceKey) {
+  if (!deltaInputLabels.length) {
+    return;
+  }
+  const space = deltaInputSpaces[spaceKey];
+  const labels = space?.componentLabels || ['C1', 'C2', 'C3'];
+  deltaInputLabels.forEach((labelElement) => {
+    const index = Number(labelElement.dataset.componentIndex || 0);
+    labelElement.textContent = labels[index] || labels[labels.length - 1] || '';
+  });
+}
+
+function parseDeltaInputs(spaceKey) {
+  if (!deltaInputs.length) {
+    throw new Error('入力欄を利用できません。');
+  }
+  const space = deltaInputSpaces[spaceKey];
+  if (!space) {
+    throw new Error('未対応の入力色空間です。');
+  }
+
+  const rawValues = deltaInputs.map((input) => input.value.trim());
+  if (rawValues.some((value) => value === '')) {
+    throw new Error('全ての成分に値を入力してください。');
+  }
+
+  const numericValues = rawValues.map((value) => Number(value));
+  if (numericValues.some((value) => !Number.isFinite(value))) {
+    throw new Error('数値を入力してください。');
+  }
+
+  const xyz = space.toXYZ([...numericValues]);
+  if (!xyz || xyz.some((value) => !Number.isFinite(value))) {
+    throw new Error('色の変換に失敗しました。値を確認してください。');
+  }
+
+  return {
+    space,
+    values: numericValues,
+    xyz,
+    formattedInput: numericValues.map((value) => formatFloat(value)).join(', '),
+  };
+}
+
+function showDeltaMessage(message) {
+  if (!deltaResultElement) {
+    return;
+  }
+  const content = typeof message === 'string' ? message : '色差の計算に失敗しました。';
+  deltaResultElement.innerHTML = `<p class="delta-result__message">${escapeHtml(content)}</p>`;
+  delete deltaResultElement.dataset.hasResult;
+}
+
+function updateDeltaReference(xyz) {
+  if (!deltaReferenceElement) {
+    return;
+  }
+
+  if (!xyz || xyz.some((value) => !Number.isFinite(value))) {
+    deltaReferenceElement.innerHTML = '<p class="delta-reference__message">表示中の色の情報を取得できません。</p>';
+    return;
+  }
+
+  const srgb = colorSpaces.srgb.fromXYZ(xyz).map((value) => clamp(value, 0, 1));
+  const xyzText = escapeHtml(formatList(xyz, formatFloat));
+  const luvText = escapeHtml(formatList(xyzToLuv(xyz), formatFloat));
+  const labText = escapeHtml(formatList(xyzToLab(xyz), formatFloat));
+  const srgbFloat = escapeHtml(formatList(srgb, formatFloat));
+  const hex = escapeHtml(formatHex(srgb));
+
+  deltaReferenceElement.innerHTML = `
+    <h3 class="delta-reference__title">表示中の色</h3>
+    <dl class="delta-reference__list">
+      <div class="delta-reference__row">
+        <dt class="delta-reference__term">#HEX</dt>
+        <dd class="delta-reference__value">${hex}</dd>
+      </div>
+      <div class="delta-reference__row">
+        <dt class="delta-reference__term">sRGB</dt>
+        <dd class="delta-reference__value">${srgbFloat}</dd>
+      </div>
+      <div class="delta-reference__row">
+        <dt class="delta-reference__term">XYZ</dt>
+        <dd class="delta-reference__value">${xyzText}</dd>
+      </div>
+      <div class="delta-reference__row">
+        <dt class="delta-reference__term">CIELUV</dt>
+        <dd class="delta-reference__value">${luvText}</dd>
+      </div>
+      <div class="delta-reference__row">
+        <dt class="delta-reference__term">CIELAB</dt>
+        <dd class="delta-reference__value">${labText}</dd>
+      </div>
+    </dl>
+  `;
+}
+
+function recalculateDeltaEIfPossible() {
+  if (!deltaResultElement || deltaResultElement.dataset.hasResult !== 'true') {
+    return;
+  }
+  if (!deltaInputs.length || deltaInputs.some((input) => input.value.trim() === '')) {
+    return;
+  }
+  calculateDeltaE();
+}
+
+function calculateDeltaE() {
+  if (!deltaResultElement) {
+    return;
+  }
+
+  if (!lastXYZ || lastXYZ.some((value) => !Number.isFinite(value))) {
+    showDeltaMessage('表示中の色が取得できません。色を設定してください。');
+    return;
+  }
+
+  const spaceKey = deltaInputSpaceSelect?.value || 'xyz';
+  let parsed;
+  try {
+    parsed = parseDeltaInputs(spaceKey);
+  } catch (error) {
+    showDeltaMessage(error.message);
+    return;
+  }
+
+  if (!parsed.xyz || parsed.xyz.some((value) => !Number.isFinite(value))) {
+    showDeltaMessage('色の変換に失敗しました。値を確認してください。');
+    return;
+  }
+
+  const baseLab = xyzToLab(lastXYZ);
+  const targetLab = xyzToLab(parsed.xyz);
+  if ([...baseLab, ...targetLab].some((value) => !Number.isFinite(value))) {
+    showDeltaMessage('色差の計算に失敗しました。');
+    return;
+  }
+
+  const methodKey = deltaMethodSelect?.value || 'de2000';
+  const method = deltaEMethods[methodKey];
+  if (!method) {
+    showDeltaMessage('選択した計算法に対応していません。');
+    return;
+  }
+
+  const deltaValue = method.calculate(baseLab, targetLab);
+  if (!Number.isFinite(deltaValue)) {
+    showDeltaMessage('色差の計算に失敗しました。');
+    return;
+  }
+
+  const srgb = colorSpaces.srgb.fromXYZ(parsed.xyz).map((value) => clamp(value, 0, 1));
+  const srgbHex = escapeHtml(formatHex(srgb));
+  const srgbFloat = escapeHtml(formatList(srgb, formatFloat));
+  const xyzText = escapeHtml(formatList(parsed.xyz, formatFloat));
+  const labText = escapeHtml(formatList(targetLab, formatFloat));
+  const inputText = escapeHtml(parsed.formattedInput);
+
+  deltaResultElement.innerHTML = `
+    <article class="delta-result__card">
+      <h3 class="delta-result__title">${escapeHtml(method.name)}</h3>
+      <p class="delta-result__value">ΔE = ${escapeHtml(formatFloat(deltaValue))}</p>
+      <dl class="delta-result__details">
+        <div class="delta-result__row">
+          <dt class="delta-result__term">${escapeHtml(parsed.space.name)}</dt>
+          <dd class="delta-result__value-text">${inputText}</dd>
+        </div>
+        <div class="delta-result__row">
+          <dt class="delta-result__term">CIELAB</dt>
+          <dd class="delta-result__value-text">${labText}</dd>
+        </div>
+        <div class="delta-result__row">
+          <dt class="delta-result__term">XYZ</dt>
+          <dd class="delta-result__value-text">${xyzText}</dd>
+        </div>
+        <div class="delta-result__row">
+          <dt class="delta-result__term">sRGB</dt>
+          <dd class="delta-result__value-text">${srgbHex} (${srgbFloat})</dd>
+        </div>
+      </dl>
+    </article>
+  `;
+
+  deltaResultElement.dataset.hasResult = 'true';
+}
+
 function updateComponentLabels(spaceKey) {
   const space = colorSpaces[spaceKey];
   const labels = space ? space.componentLabels : ['R', 'G', 'B'];
@@ -872,6 +1234,8 @@ function setColor() {
 
   populateInputsFromXYZ(lastXYZ, spaceKey);
   renderColorDetails(lastXYZ, spaceKey);
+  updateDeltaReference(lastXYZ);
+  recalculateDeltaEIfPossible();
 
   const summary = [
     `色空間: ${space.name}`,
@@ -895,6 +1259,8 @@ function showExternalColor(command) {
   lastXYZ = colorSpaces.srgb.toXYZ(components);
   populateInputsFromXYZ(lastXYZ, colorSpaceSelect.value);
   renderColorDetails(lastXYZ, colorSpaceSelect.value);
+  updateDeltaReference(lastXYZ);
+  recalculateDeltaEIfPossible();
 }
 
 function setImage() {
@@ -978,10 +1344,12 @@ function initializeColorForm() {
   const spaceKey = colorSpaceSelect.value;
   updateComponentLabels(spaceKey);
   updateInputModeOptions(spaceKey);
+  updateDeltaInputLabels(deltaInputSpaceSelect?.value || 'xyz');
   const defaultXYZ = colorSpaces.srgb.toXYZ([1, 0, 0]);
   lastXYZ = defaultXYZ;
   populateInputsFromXYZ(defaultXYZ, spaceKey);
   renderColorDetails(defaultXYZ, spaceKey);
+  updateDeltaReference(defaultXYZ);
 }
 
 inputModeButtons.forEach((button) => {
@@ -1017,6 +1385,40 @@ colorInputs.forEach((input) => {
       setColor();
     }
   });
+});
+
+deltaInputs.forEach((input) => {
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      calculateDeltaE();
+    }
+  });
+  input.addEventListener('input', () => {
+    if (deltaResultElement) {
+      delete deltaResultElement.dataset.hasResult;
+    }
+  });
+});
+
+deltaInputSpaceSelect?.addEventListener('change', (event) => {
+  updateDeltaInputLabels(event.target.value);
+  if (deltaResultElement) {
+    delete deltaResultElement.dataset.hasResult;
+  }
+});
+
+deltaButton?.addEventListener('click', () => {
+  calculateDeltaE();
+});
+
+deltaMethodSelect?.addEventListener('change', () => {
+  if (
+    deltaResultElement?.dataset.hasResult === 'true' &&
+    deltaInputs.every((input) => input.value.trim() !== '')
+  ) {
+    calculateDeltaE();
+  }
 });
 
 document.getElementById('colorButton').addEventListener('click', setColor);
