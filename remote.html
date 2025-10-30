@@ -23,6 +23,17 @@
       <button
         type="button"
         class="tab-menu__tab"
+        id="tab-button-deltaE"
+        data-tab="deltaE"
+        role="tab"
+        aria-selected="false"
+        aria-controls="tab-panel-deltaE"
+      >
+        色差計算
+      </button>
+      <button
+        type="button"
+        class="tab-menu__tab"
         id="tab-button-image"
         data-tab="image"
         role="tab"
@@ -164,6 +175,73 @@
             </select>
           </div>
           <div class="color-details__body" id="colorDetailsBody" aria-live="polite"></div>
+        </div>
+      </section>
+      <section
+        id="tab-panel-deltaE"
+        class="tab-panel"
+        role="tabpanel"
+        aria-labelledby="tab-button-deltaE"
+        hidden
+      >
+        <div class="delta-section">
+          <div class="delta-reference" id="deltaReference">
+            <p class="delta-reference__message">表示中の色の情報がここに表示されます。</p>
+          </div>
+          <form id="deltaEForm" class="delta-form">
+            <p class="delta-form__lead">表示中の色と入力値の色差を計算します。</p>
+            <div class="delta-form__group">
+              <label for="deltaInputSpace">入力色空間</label>
+              <select id="deltaInputSpace" class="delta-form__select">
+                <option value="xyz">CIE XYZ</option>
+                <option value="luv">CIELUV</option>
+              </select>
+            </div>
+            <div class="delta-form__components">
+              <label class="delta-form__component" for="deltaInput0">
+                <span class="delta-form__component-label" data-component-index="0">X</span>
+                <input
+                  type="number"
+                  id="deltaInput0"
+                  step="0.0001"
+                  inputmode="decimal"
+                  autocomplete="off"
+                />
+              </label>
+              <label class="delta-form__component" for="deltaInput1">
+                <span class="delta-form__component-label" data-component-index="1">Y</span>
+                <input
+                  type="number"
+                  id="deltaInput1"
+                  step="0.0001"
+                  inputmode="decimal"
+                  autocomplete="off"
+                />
+              </label>
+              <label class="delta-form__component" for="deltaInput2">
+                <span class="delta-form__component-label" data-component-index="2">Z</span>
+                <input
+                  type="number"
+                  id="deltaInput2"
+                  step="0.0001"
+                  inputmode="decimal"
+                  autocomplete="off"
+                />
+              </label>
+            </div>
+            <div class="delta-form__group">
+              <label for="deltaMethod">ΔE 計算法</label>
+              <select id="deltaMethod" class="delta-form__select">
+                <option value="de76">CIE76 (ΔE*ab)</option>
+                <option value="de94">CIE94</option>
+                <option value="de2000">CIEDE2000</option>
+              </select>
+            </div>
+            <button type="button" id="deltaButton" class="action-button">色差を計算</button>
+          </form>
+          <div class="delta-result" id="deltaResult">
+            <p class="delta-result__message">入力値を指定して色差を計算できます。</p>
+          </div>
         </div>
       </section>
       <section
